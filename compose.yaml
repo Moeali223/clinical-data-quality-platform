@@ -1,0 +1,54 @@
+name: clinical-data-quality
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    environment:
+      POSTGRES_DB: clinical_data_quality
+      POSTGRES_USER: clinical
+      # Local demo credentials only; the database has no host port mapping.
+      POSTGRES_PASSWORD: clinical_local_only
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # TCP becomes available after the image's initialization scripts finish.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql://clinical:clinical_local_only@db:5432/clinical_data_quality
+    ports:
+      - "127.0.0.1:${COMPOSE_API_PORT:-8001}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  tests:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    environment:
+      # Fixtures isolate their own schemas; they never clear demo tables.
+      TEST_DATABASE_URL: postgresql://clinical:clinical_local_only@db:5432/clinical_data_quality
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

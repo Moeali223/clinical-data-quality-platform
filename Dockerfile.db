@@ -1,0 +1,4 @@
+FROM postgres:17-bookworm
+
+# Package initialization SQL so startup needs no host-folder sharing.
+COPY sql/schema.sql /docker-entrypoint-initdb.d/001-schema.sql

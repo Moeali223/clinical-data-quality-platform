@@ -1,0 +1,21 @@
+# Only these project inputs enter the Docker build context.
+**
+!Dockerfile
+!Dockerfile.db
+!.dockerignore
+!pyproject.toml
+!README.md
+!src/
+!src/**
+!tests/
+!tests/**
+!sql/
+!sql/**
+!data/
+!data/**
+
+# Exclude generated files even inside allowed directories.
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/
+**/.pytest_cache/
