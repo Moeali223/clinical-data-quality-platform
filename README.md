@@ -7,7 +7,8 @@ and reports through a FastAPI REST API.
 
 ## Current status
 
-Phase 8 is complete: the API and PostgreSQL run together with Docker Compose.
+Phase 9 adds GitHub Actions CI in a separate public portfolio repository.
+The API and PostgreSQL also run together with Docker Compose.
 All 95 tests pass inside Docker, including commit, rollback, and concurrent
 ingestion checks. Saved data survives container recreation.
 The first sample ingestion into an empty database saves 10 accepted encounters

@@ -92,7 +92,7 @@ def test_repeat_upload_creates_new_run_without_overwrite(client):
 @pytest.mark.parametrize("content,status", [
     (b"wrong,headers\n", 400), (b"", 400), (b"\xff", 400),
     (b"x" * (MAX_UPLOAD_BYTES + 1), 413),
-])
+], ids=["bad-headers", "empty-file", "invalid-utf8", "oversized-file"])
 def test_bad_uploads_do_not_create_runs(client, connection, content, status):
     response = client.post("/ingest", files={"file": ("bad.csv", content, "text/csv")})
     assert response.status_code == status
