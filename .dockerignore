@@ -4,6 +4,7 @@
 !Dockerfile.db
 !.dockerignore
 !pyproject.toml
+!requirements.txt
 !README.md
 !src/
 !src/**
@@ -13,6 +14,8 @@
 !sql/**
 !data/
 !data/**
+!scripts/
+!scripts/**
 
 # Exclude generated files even inside allowed directories.
 **/__pycache__/

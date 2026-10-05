@@ -127,3 +127,44 @@ def test_invalid_query_parameters_return_422(client, url):
 @pytest.mark.integration
 def test_missing_upload_returns_422(client):
     assert client.post("/ingest").status_code == 422
+
+
+@pytest.mark.parametrize("key", [None, "wrong"])
+def test_hosted_ingestion_requires_key_before_database_access(monkeypatch, key):
+    monkeypatch.setenv("INGEST_API_KEY", "test-key")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    headers = {"X-Ingest-Key": key} if key else {}
+    with TestClient(app) as client:
+        response = client.post("/ingest", files={"file": ("empty.csv", b"")}, headers=headers)
+        assert response.status_code == 401
+        assert "test-key" not in response.text
+        assert client.get("/health").status_code == 200
+
+
+@pytest.mark.integration
+def test_key_protected_bom_upload(client, monkeypatch):
+    monkeypatch.setenv("INGEST_API_KEY", "test-key")
+    response = client.post(
+        "/ingest", files={"file": ("bom.csv", b"\xef\xbb\xbf" + SAMPLE.read_bytes())},
+        headers={"X-Ingest-Key": "test-key"},
+    )
+    assert response.status_code == 201
+    assert response.json()["report"]["valid_records"] == 10
+
+
+@pytest.mark.integration
+def test_nul_upload_does_not_save_partial_data(client, connection):
+    content = SAMPLE.read_bytes().replace(b"MEM001", b"MEM\x00001", 1)
+    response = client.post("/ingest", files={"file": ("bad.csv", content)})
+    assert response.status_code == 400
+    assert connection.execute("SELECT count(*) FROM ingestion_runs").fetchone()[0] == 0
+
+
+def test_nonascii_ingest_key_is_rejected_cleanly(monkeypatch):
+    from fastapi import HTTPException
+    from clinical_data_quality.api import require_ingest_key
+
+    monkeypatch.setenv("INGEST_API_KEY", "test-key")
+    with pytest.raises(HTTPException) as error:
+        require_ingest_key("incorrect-\u2603")
+    assert error.value.status_code == 401

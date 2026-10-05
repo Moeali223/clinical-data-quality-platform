@@ -4,9 +4,10 @@ from dataclasses import asdict
 from datetime import date
 from io import StringIO
 import os
+from secrets import compare_digest
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import psycopg
@@ -20,7 +21,7 @@ from clinical_data_quality.models import QualityReport, ValidationIssue
 
 app = FastAPI(
     title="Clinical Data Quality Platform",
-    description="Synthetic encounter ingestion and data-quality results. Local portfolio demo.",
+    description="Synthetic encounter ingestion and data-quality results. Portfolio demo.",
     version="0.1.0",
 )
 MAX_UPLOAD_BYTES = 1024 * 1024
@@ -65,6 +66,15 @@ def get_connection():
 Connection = Annotated[psycopg.Connection, Depends(get_connection)]
 
 
+def require_ingest_key(
+    x_ingest_key: Annotated[str | None, Header()] = None,
+) -> None:
+    """Optional write protection for a hosted demo; local setup needs no key."""
+    expected = os.environ.get("INGEST_API_KEY")
+    if expected and not compare_digest(expected.encode(), (x_ingest_key or "").encode()):
+        raise HTTPException(401, "A valid X-Ingest-Key header is required.")
+
+
 @app.exception_handler(psycopg.OperationalError)
 def database_unavailable(request: Request, error: psycopg.OperationalError):
     return JSONResponse(status_code=503, content={"detail": "Database unavailable."})
@@ -81,14 +91,17 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/ingest", response_model=IngestResponse, status_code=201)
+@app.post("/ingest", response_model=IngestResponse, status_code=201,
+          dependencies=[Depends(require_ingest_key)])
 def ingest(file: UploadFile, connection: Connection):
     """Process a UTF-8 CSV up to 1 MiB and save its run and quality results."""
     content = file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(413, "CSV upload must be at most 1 MiB.")
+    if "\x00" in (file.filename or ""):
+        raise HTTPException(400, "The filename must not contain NUL characters.")
     try:
-        rows = read_encounter_stream(StringIO(content.decode("utf-8"), newline=""))
+        rows = read_encounter_stream(StringIO(content.decode("utf-8-sig"), newline=""))
     except UnicodeDecodeError as error:
         raise HTTPException(400, "The CSV must use UTF-8 encoding.") from error
     except IngestionError as error:

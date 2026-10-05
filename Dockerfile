@@ -5,7 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 WORKDIR /app
-COPY pyproject.toml README.md ./
+COPY pyproject.toml requirements.txt README.md ./
 COPY src/ ./src/
 RUN pip install . \
     && useradd --create-home --uid 10001 app
@@ -18,6 +18,7 @@ RUN pip install '.[dev]'
 COPY tests/ ./tests/
 COPY sql/ ./sql/
 COPY data/ ./data/
+COPY scripts/ ./scripts/
 USER app
 CMD ["python", "-m", "pytest", "-v", "-W", "error", "-p", "no:cacheprovider"]
 

@@ -1,0 +1,2 @@
+# App Service's build installs the project and its runtime dependencies.
+.

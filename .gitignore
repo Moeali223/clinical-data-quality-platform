@@ -19,3 +19,7 @@ dist/
 
 # macOS metadata
 .DS_Store
+
+# Local Azure credentials/settings
+.azure-local/
+.azure/

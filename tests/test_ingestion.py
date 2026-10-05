@@ -112,3 +112,15 @@ def test_multiline_quoted_values_count_records_not_physical_lines():
     assert [row.row_number for row in rows] == [1, 2]
     assert rows[0].member_id == "member\r\nlabel"
     assert not source.closed
+
+
+def test_utf8_bom_is_accepted(tmp_path):
+    source = tmp_path / "bom.csv"
+    source.write_bytes(b"\xef\xbb\xbf" + SAMPLE.read_bytes())
+    assert len(read_encounters(source)) == 20
+
+
+def test_nul_field_is_rejected_before_database_storage():
+    source = StringIO(HEADER + 'ENC001,MEM\x00001,0123456789,2025-01-01,I10,00100,outpatient,11\n')
+    with pytest.raises(IngestionError, match="Data row 1: NUL"):
+        read_encounter_stream(source)

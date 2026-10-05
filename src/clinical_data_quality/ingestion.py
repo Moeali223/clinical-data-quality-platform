@@ -29,7 +29,7 @@ def read_encounters(path: str | Path) -> list[EncounterRow]:
     Empty field values and duplicates are retained for later validation.
     File access errors propagate normally; malformed CSV raises IngestionError.
     """
-    with Path(path).open(encoding="utf-8", newline="") as source:
+    with Path(path).open(encoding="utf-8-sig", newline="") as source:
         return read_encounter_stream(source)
 
 
@@ -52,6 +52,8 @@ def read_encounter_stream(source: TextIO) -> list[EncounterRow]:
                 raise IngestionError(
                     f"Data row {row_number}: expected 8 fields, got {len(values)}."
                 )
+            if any("\x00" in value for value in values):
+                raise IngestionError(f"Data row {row_number}: NUL characters are not allowed.")
             fields = dict(zip(EXPECTED_HEADERS, values))
             encounters.append(EncounterRow(row_number=row_number, **fields))
     except csv.Error as error:
